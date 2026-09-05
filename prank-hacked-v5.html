@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;
+    height:100%;
+    background:#000;
+    font-family:'Consolas','Courier New',monospace;
+    overflow:hidden;
+  }
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .launch{
+    text-align:center;
+    padding:20px;
+  }
+  .launch button{
+    background:transparent;
+    border:2px solid #8a0f14;
+    color:#c7161d;
+    font-size:clamp(1rem,4vw,1.2rem);
+    padding:16px 34px;
+    border-radius:3px;
+    cursor:pointer;
+    font-family:inherit;
+    width:min(280px,80vw);
+    letter-spacing:1px;
+  }
+  .launch button:active,
+  .launch button:hover{
+    box-shadow:0 0 24px rgba(199,22,29,.45);
+  }
+
+  /* film-grain / static overlay used across every phase */
+  .grain{
+    position:fixed; inset:0;
+    z-index:50;
+    pointer-events:none;
+    opacity:0;
+    mix-blend-mode:overlay;
+  }
+  .grain.on{opacity:.5;}
+
+  /* ---------- classic BSOD (kept as the opening beat) ---------- */
+  .bsod{
+    position:fixed;
+    inset:0;
+    background:#0078d7;
+    color:#fff;
+    display:none;
+    padding:6vh 6vw;
+    z-index:20;
+    overflow-y:auto;
+    font-family:'Segoe UI', Tahoma, sans-serif;
+  }
+  .bsod.show{display:block;}
+  .bsod .face{
+    font-size:clamp(3rem,10vw,5rem);
+    font-weight:400;
+    line-height:1;
+    margin-bottom:16px;
+  }
+  .bsod h1{
+    font-size:clamp(1.1rem,4.2vw,1.8rem);
+    font-weight:400;
+    max-width:700px;
+    margin:0 0 24px;
+    line-height:1.4;
+  }
+  .bsod .pct{
+    font-size:clamp(1rem,3.6vw,1.3rem);
+    margin-bottom:30px;
+  }
+  .bsod .qr-row{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    margin-bottom:24px;
+    flex-wrap:wrap;
+  }
+  .qr{
+    width:90px;
+    height:90px;
+    flex-shrink:0;
+    background:#fff;
+    background-image:
+      repeating-linear-gradient(0deg,#0078d7 0 5px,#fff 5px 10px),
+      repeating-linear-gradient(90deg,#0078d7 0 5px,transparent 5px 10px);
+  }
+  .bsod .info p{
+    font-size:clamp(.75rem,3vw,.85rem);
+    max-width:420px;
+    line-height:1.6;
+    margin:0;
+  }
+  .bsod .code{
+    margin-top:20px;
+    font-size:clamp(.75rem,3vw,.85rem);
+  }
+
+  /* ---------- hacker terminal (second beat, before things turn dark/red) ---------- */
+  .term{
+    position:fixed;
+    inset:0;
+    background:#000;
+    color:#39ff88;
+    font-family:'Consolas','Courier New',monospace;
+    display:none;
+    padding:18px;
+    font-size:clamp(.68rem,2.8vw,.9rem);
+    line-height:1.5;
+    z-index:21;
+    overflow:hidden;
+  }
+  .term.show{display:flex; flex-direction:column-reverse;}
+  .term-inner{display:flex; flex-direction:column;}
+  .term .line{opacity:0; animation:fade .15s forwards; word-break:break-word;}
+  @keyframes fade{to{opacity:1;}}
+  .cursor{
+    display:inline-block;
+    width:7px;
+    height:12px;
+    background:#39ff88;
+    animation:blink 1s step-end infinite;
+    vertical-align:middle;
+  }
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ---------- corruption intro ---------- */
+  .corrupt{
+    position:fixed;
+    inset:0;
+    background:#000;
+    color:#c7161d;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:6vh 6vw;
+    z-index:20;
+  }
+  .corrupt.show{display:flex;}
+  .corrupt h1{
+    font-size:clamp(1.3rem,5.5vw,2.4rem);
+    font-weight:400;
+    letter-spacing:1px;
+    max-width:640px;
+    line-height:1.5;
+    text-shadow:0 0 12px rgba(199,22,29,.8);
+    animation:flicker 2.6s infinite;
+  }
+  @keyframes flicker{
+    0%,19%,21%,23%,55%,57%,100%{opacity:1;}
+    20%,22%,56%{opacity:.35;}
+  }
+  .corrupt .pct{
+    margin-top:26px;
+    font-size:clamp(.9rem,3.4vw,1.1rem);
+    color:#7c7c7c;
+  }
+  .shake{ animation: shake .18s linear infinite; }
+  @keyframes shake{
+    0%{transform:translate(0,0);}
+    25%{transform:translate(-2px,1px);}
+    50%{transform:translate(2px,-1px);}
+    75%{transform:translate(-1px,-2px);}
+    100%{transform:translate(0,0);}
+  }
+
+  /* ---------- dark chaos phase ---------- */
+  .desktop{
+    position:fixed;
+    inset:0;
+    background:#050505;
+    display:none;
+    z-index:15;
+    overflow:hidden;
+  }
+  .desktop.show{display:block;}
+  .desktop::before{
+    content:'';
+    position:absolute; inset:0;
+    background:radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.85) 100%);
+    pointer-events:none;
+    z-index:1;
+  }
+
+  .popup{
+    position:absolute;
+    width:min(300px, 78vw);
+    background:#0c0c0c;
+    border:1px solid #6b0d10;
+    border-radius:3px;
+    box-shadow:0 0 22px rgba(199,22,29,.35);
+    font-family:'Consolas','Courier New',monospace;
+    overflow:hidden;
+    animation: pop-in .18s ease-out;
+  }
+  @keyframes pop-in{
+    from{transform:scale(.85); opacity:0;}
+    to{transform:scale(1); opacity:1;}
+  }
+  .popup .titlebar{
+    background:#1a0303;
+    color:#c7161d;
+    font-size:.75rem;
+    font-weight:bold;
+    padding:5px 8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid #4a0709;
+    letter-spacing:.5px;
+  }
+  .popup .titlebar .x{
+    background:#2a0507;
+    border:1px solid #6b0d10;
+    color:#c7161d;
+    border-radius:2px;
+    width:16px;height:16px;
+    font-size:.65rem;
+    line-height:14px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .popup .body{
+    display:flex;
+    gap:10px;
+    padding:14px 12px 10px;
+    align-items:flex-start;
+  }
+  .popup .icon{
+    font-size:1.6rem;
+    flex-shrink:0;
+    filter:grayscale(1) brightness(.8);
+  }
+  .popup .msg{
+    font-size:.76rem;
+    color:#b8b8b8;
+    line-height:1.5;
+  }
+  .popup .actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    padding:0 12px 12px;
+  }
+  .popup .actions button{
+    background:#0c0c0c;
+    border:1px solid #5a5a5a;
+    color:#c7c7c7;
+    border-radius:3px;
+    padding:4px 16px;
+    font-size:.75rem;
+    cursor:pointer;
+  }
+  .popup .actions button:hover{border-color:#c7161d; color:#c7161d;}
+
+  /* creepy crawling / watching elements instead of playful bugs */
+  .creep{
+    position:absolute;
+    font-size:1.7rem;
+    z-index:16;
+    pointer-events:none;
+    will-change:transform, opacity;
+    filter:grayscale(1) brightness(.75) drop-shadow(0 0 6px rgba(199,22,29,.5));
+  }
+
+  .whisper-text{
+    position:absolute;
+    color:#3a0507;
+    font-size:.75rem;
+    letter-spacing:2px;
+    z-index:14;
+    opacity:0;
+    animation: whisper-fade 3s ease-in-out forwards;
+    pointer-events:none;
+  }
+  @keyframes whisper-fade{
+    0%{opacity:0;}
+    30%{opacity:.5;}
+    100%{opacity:0;}
+  }
+
+  /* full-screen flash used for jolts */
+  .flash{
+    position:fixed; inset:0;
+    background:#c7161d;
+    z-index:40;
+    opacity:0;
+    pointer-events:none;
+  }
+
+  /* ---------- final screen ---------- */
+  .final{
+    position:fixed;
+    inset:0;
+    background:#000;
+    color:#c7161d;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    text-align:center;
+    z-index:22;
+    font-family:'Consolas','Courier New',monospace;
+    padding:24px;
+  }
+  .final.show{display:flex;}
+  .eye{
+    font-size:clamp(3rem,12vw,5rem);
+    margin-bottom:14px;
+    animation:blink-eye 3.4s infinite;
+    filter:drop-shadow(0 0 18px rgba(199,22,29,.6));
+  }
+  @keyframes blink-eye{
+    0%,92%,100%{transform:scaleY(1);}
+    95%{transform:scaleY(0.08);}
+  }
+  .final h1{
+    font-size:clamp(1.3rem,6vw,2.1rem);
+    letter-spacing:3px;
+    margin:0 0 14px;
+    text-shadow:0 0 14px rgba(199,22,29,.7);
+    animation:flicker 3s infinite;
+  }
+  .final p{
+    color:#6b6b6b;
+    font-size:clamp(.75rem,3.2vw,.85rem);
+    max-width:480px;
+    line-height:1.7;
+  }
+  .reset{
+    margin-top:26px;
+    background:transparent;
+    border:1px solid #c7161d;
+    color:#c7161d;
+    padding:10px 26px;
+    border-radius:3px;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:.9rem;
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0">
+  <filter id="noiseFilter">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+  </filter>
+</svg>
+<div class="grain" id="grain" style="background:transparent;">
+  <svg width="100%" height="100%" style="width:100%;height:100%;"><rect width="100%" height="100%" filter="url(#noiseFilter)" opacity="0.4"/></svg>
+</div>
+<div class="flash" id="flash"></div>
+
+<div class="launch">
+  <button id="startBtn">Click for description</button>
+</div>
+
+<!-- classic BSOD opening -->
+<div class="bsod" id="bsod">
+  <div class="face">:(</div>
+  <h1>Your PC ran into a problem and needs to restart. We're just collecting some error info, then we'll restart for you.</h1>
+  <div class="pct" id="pct">0% complete</div>
+  <div class="qr-row">
+    <div class="qr"></div>
+    <div class="info">
+      <p>For more information about this issue and possible fixes, visit https://www.windows.com/stopcode</p>
+    </div>
+  </div>
+  <div class="code" id="stopcode">Stop code: CRITICAL_PROCESS_DIED</div>
+</div>
+
+<!-- hacker terminal -->
+<div class="term" id="term"><div class="term-inner" id="termInner"></div></div>
+
+<!-- corruption intro -->
+<div class="corrupt" id="corrupt">
+  <h1 id="corruptText">A process on this device is no longer responding to you.</h1>
+  <div class="pct" id="corruptPct">initializing...</div>
+</div>
+
+<!-- dark chaos phase -->
+<div class="desktop" id="desktop"></div>
+
+<!-- final screen -->
+<div class="final" id="final">
+  <div class="eye">👁</div>
+  <h1>I SEE YOU</h1>
+  <button class="reset" id="resetBtn">Restart System</button>
+</div>
+
+<script>
+const startBtn = document.getElementById('startBtn');
+const bsod = document.getElementById('bsod');
+const pct = document.getElementById('pct');
+const stopcode = document.getElementById('stopcode');
+const term = document.getElementById('term');
+const termInner = document.getElementById('termInner');
+const corrupt = document.getElementById('corrupt');
+const corruptText = document.getElementById('corruptText');
+const corruptPct = document.getElementById('corruptPct');
+const desktop = document.getElementById('desktop');
+const final = document.getElementById('final');
+const resetBtn = document.getElementById('resetBtn');
+const grain = document.getElementById('grain');
+const flash = document.getElementById('flash');
+
+// ---------- synthesized sound effects (no external audio files, no
+// copyrighted recordings — everything below is generated on the fly with
+// the Web Audio API: oscillators, filtered noise, ring modulation and a
+// procedural reverb, mixed to feel like a dark ambient/horror bed rather
+// than game-style beeps) ----------
+let actx = null;
+let masterGain = null, reverbNode = null, reverbSend = null, dryGain = null;
+
+function getCtx(){
+  if(!actx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    actx = new AC();
+    masterGain = actx.createGain();
+    masterGain.gain.value = 1;
+    masterGain.connect(actx.destination);
+
+    // procedural impulse response — dark, slightly uneven decay (not a clean hall)
+    const dur = 2.6;
+    const len = Math.floor(actx.sampleRate * dur);
+    const impulse = actx.createBuffer(2, len, actx.sampleRate);
+    for(let ch=0; ch<2; ch++){
+      const data = impulse.getChannelData(ch);
+      for(let i=0;i<len;i++){
+        const decay = Math.pow(1 - i/len, 2.4);
+        data[i] = (Math.random()*2-1) * decay * (0.6 + 0.4*Math.sin(i*0.0007+ch));
+      }
+    }
+    reverbNode = actx.createConvolver();
+    reverbNode.buffer = impulse;
+
+    dryGain = actx.createGain(); dryGain.gain.value = 1;
+    reverbSend = actx.createGain(); reverbSend.gain.value = 0.55;
+
+    dryGain.connect(masterGain);
+    reverbSend.connect(reverbNode).connect(masterGain);
+  }
+  return actx;
+}
+
+// connects a node to both the dry path and the shared reverb, wetAmt in [0,1]
+function toMix(node, wetAmt=0.4){
+  node.connect(dryGain);
+  const send = getCtx().createGain();
+  send.gain.value = wetAmt;
+  node.connect(send).connect(reverbSend);
+}
+
+function tone(freq, start, dur, type='sine', peak=0.18, wet=0.3){
+  const ctx = getCtx(); if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+  gain.gain.setValueAtTime(0, ctx.currentTime + start);
+  gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+  osc.connect(gain);
+  toMix(gain, wet);
+  osc.start(ctx.currentTime + start);
+  osc.stop(ctx.currentTime + start + dur + 0.02);
+}
+
+function sweep(freqFrom, freqTo, start, dur, type='sine', peak=0.15, wet=0.3){
+  const ctx = getCtx(); if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freqFrom, ctx.currentTime + start);
+  osc.frequency.exponentialRampToValueAtTime(freqTo, ctx.currentTime + start + dur);
+  gain.gain.setValueAtTime(peak, ctx.currentTime + start);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+  osc.connect(gain);
+  toMix(gain, wet);
+  osc.start(ctx.currentTime + start);
+  osc.stop(ctx.currentTime + start + dur + 0.02);
+}
+
+function noiseBurst(start, dur, peak=0.2, filterFreq=1200, type='lowpass', wet=0.35){
+  const ctx = getCtx(); if(!ctx) return;
+  const bufferSize = Math.floor(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filt = ctx.createBiquadFilter();
+  filt.type = type;
+  filt.frequency.value = filterFreq;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(peak, ctx.currentTime + start);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+  src.connect(filt).connect(gain);
+  toMix(gain, wet);
+  src.start(ctx.currentTime + start);
+}
+
+// distortion curve for harsher, "corrupted audio" style tones
+function makeDistortion(amount=40){
+  const ctx = getCtx(); if(!ctx) return null;
+  const n = 44100;
+  const curve = new Float32Array(n);
+  const deg = Math.PI/180;
+  for(let i=0;i<n;i++){
+    const x = i*2/n - 1;
+    curve[i] = (3+amount)*x*20*deg / (Math.PI + amount*Math.abs(x));
+  }
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = curve;
+  shaper.oversample = '4x';
+  return shaper;
+}
+
+// ---------- layered drone: sub-bass + detuned mid layer + slow filter sweep,
+// this is the main atmosphere bed instead of a single thin sine ----------
+let droneNodes = [];
+function startDrone(){
+  const ctx = getCtx(); if(!ctx) return;
+  stopDrone();
+
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0, ctx.currentTime);
+  master.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 3);
+  toMix(master, 0.5);
+  droneNodes.push(master);
+
+  // sub layer
+  const sub = ctx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.value = 42;
+  const subLFO = ctx.createOscillator();
+  subLFO.type = 'sine'; subLFO.frequency.value = 0.08;
+  const subLFOGain = ctx.createGain(); subLFOGain.gain.value = 4;
+  subLFO.connect(subLFOGain).connect(sub.frequency);
+  sub.connect(master);
+  sub.start(); subLFO.start();
+  droneNodes.push(sub, subLFO);
+
+  // detuned mid layer for unease (two close frequencies beating against each other)
+  [98, 101.5].forEach(f => {
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = f;
+    const g = ctx.createGain(); g.gain.value = 0.35;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 300;
+    o.connect(filt).connect(g).connect(master);
+    o.start();
+    droneNodes.push(o);
+  });
+
+  // slowly filtered noise bed for texture (wind / static undertone)
+  const bufferSize = ctx.sampleRate * 4;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
+  const noiseSrc = ctx.createBufferSource();
+  noiseSrc.buffer = buffer; noiseSrc.loop = true;
+  const noiseFilt = ctx.createBiquadFilter();
+  noiseFilt.type = 'bandpass'; noiseFilt.frequency.value = 500; noiseFilt.Q.value = 0.6;
+  const noiseLFO = ctx.createOscillator();
+  noiseLFO.type='sine'; noiseLFO.frequency.value = 0.05;
+  const noiseLFOGain = ctx.createGain(); noiseLFOGain.gain.value = 250;
+  noiseLFO.connect(noiseLFOGain).connect(noiseFilt.frequency);
+  const noiseGain = ctx.createGain(); noiseGain.gain.value = 0.12;
+  noiseSrc.connect(noiseFilt).connect(noiseGain).connect(master);
+  noiseSrc.start(); noiseLFO.start();
+  droneNodes.push(noiseSrc, noiseLFO);
+}
+function stopDrone(){
+  droneNodes.forEach(n => { try{ n.stop && n.stop(); }catch(e){} });
+  droneNodes = [];
+}
+
+// low, organic double-thump heartbeat (filtered noise + sub sine, no bright tone)
+function sfxHeartbeat(){
+  const ctx = getCtx(); if(!ctx) return;
+  [0, 0.28].forEach((offset, i) => {
+    sweep(120, 35, offset, 0.22, 'sine', i===0?0.32:0.24, 0.25);
+    noiseBurst(offset, 0.12, 0.10, 220, 'lowpass', 0.2);
+  });
+}
+
+// short, harsh digital stutter (irregular clustered clicks, not a clean beep)
+function sfxGlitch(){
+  const hits = 2 + Math.floor(Math.random()*3);
+  let t = 0;
+  for(let i=0;i<hits;i++){
+    noiseBurst(t, 0.03 + Math.random()*0.04, 0.18, 1800 + Math.random()*2500, 'bandpass', 0.4);
+    t += 0.02 + Math.random()*0.05;
+  }
+}
+
+// faint metallic creak (dissonant, slow pitch drift)
+function sfxCreak(){
+  sweep(300, 205, 0, 0.9, 'triangle', 0.05, 0.5);
+  sweep(304, 208, 0.05, 0.9, 'sine', 0.03, 0.5);
+}
+// static hiss
+function sfxStatic(dur=0.4){ noiseBurst(0, dur, 0.14, 3200, 'highpass', 0.3); }
+// distant dissonant cluster (minor 2nd, slightly detuned) instead of a clean chord
+function sfxDissonant(){
+  tone(196, 0, 0.9, 'sine', 0.07, 0.55);
+  tone(208, 0.08, 0.9, 'sine', 0.06, 0.55);
+  tone(103, 0.15, 1.0, 'sine', 0.05, 0.55);
+}
+// airy noise sweep shaped like breath/whisper texture (no actual words)
+function sfxWhisperNoise(){
+  const ctx = getCtx(); if(!ctx) return;
+  const bufferSize = Math.floor(ctx.sampleRate * 1.1);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'bandpass'; filt.Q.value = 4;
+  filt.frequency.setValueAtTime(500, ctx.currentTime);
+  filt.frequency.linearRampToValueAtTime(2200, ctx.currentTime + 0.5);
+  filt.frequency.linearRampToValueAtTime(700, ctx.currentTime + 1.05);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.25);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.05);
+  src.connect(filt).connect(gain);
+  toMix(gain, 0.6);
+  src.start();
+}
+
+// guttural, ring-modulated growl/laugh instead of a cartoon "ha-ha" bounce.
+// A low sawtooth carrier is amplitude-modulated by a slow-ish LFO (ring mod)
+// and pushed through heavy distortion + reverb, giving an inhuman, uneven texture.
+function sfxDemonLaugh(){
+  const ctx = getCtx(); if(!ctx) return;
+  const dur = 1.1 + Math.random()*0.6;
+  const carrier = ctx.createOscillator();
+  carrier.type = 'sawtooth';
+  const baseFreq = 70 + Math.random()*25;
+  carrier.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+  carrier.frequency.exponentialRampToValueAtTime(baseFreq*0.75, ctx.currentTime + dur);
+
+  const ringOsc = ctx.createOscillator();
+  ringOsc.type = 'square';
+  ringOsc.frequency.value = 7 + Math.random()*4; // irregular chugging rate
+  const ringGain = ctx.createGain();
+  ringGain.gain.value = 1;
+
+  const ringMod = ctx.createGain();
+  ringOsc.connect(ringGain);
+  ringGain.connect(ringMod.gain);
+
+  const dist = makeDistortion(55);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 900;
+
+  const outGain = ctx.createGain();
+  outGain.gain.setValueAtTime(0, ctx.currentTime);
+  outGain.gain.linearRampToValueAtTime(0.28, ctx.currentTime + 0.08);
+  outGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+
+  carrier.connect(ringMod).connect(dist).connect(lp).connect(outGain);
+  toMix(outGain, 0.55);
+
+  carrier.start(); ringOsc.start();
+  carrier.stop(ctx.currentTime + dur + 0.05);
+  ringOsc.stop(ctx.currentTime + dur + 0.05);
+
+  // a couple of extra noise "coughs" layered underneath for texture
+  noiseBurst(0.1, 0.15, 0.12, 700, 'bandpass', 0.4);
+  if(Math.random() < 0.6) noiseBurst(dur*0.5, 0.12, 0.1, 500, 'bandpass', 0.4);
+}
+
+// harsh rising/falling distorted screech with a sub-bass layer underneath for weight
+function sfxScreech(){
+  const ctx = getCtx(); if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const dist = makeDistortion(60);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(160, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(760, ctx.currentTime + 0.25);
+  osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.6);
+  gain.gain.setValueAtTime(0.001, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+  osc.connect(dist).connect(gain);
+  toMix(gain, 0.5);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.7);
+  sweep(90, 30, 0, 0.6, 'sine', 0.22, 0.4); // sub-bass hit underneath
+  noiseBurst(0, 0.55, 0.15, 1300, 'lowpass', 0.45);
+}
+
+// deep distorted stinger for jolts
+function sfxStinger(){ sfxScreech(); }
+
+
+const ambientSfx = [sfxGlitch, sfxCreak, sfxStatic, sfxDissonant, sfxWhisperNoise];
+function playAmbientSfx(){
+  const fn = ambientSfx[Math.floor(Math.random()*ambientSfx.length)];
+  try{ fn(); }catch(e){}
+}
+
+function jolt(){
+  try{
+    if(Math.random() < 0.4) sfxDemonLaugh();
+    else sfxStinger();
+  }catch(e){}
+  flash.style.transition = 'none';
+  flash.style.opacity = '0.7';
+  requestAnimationFrame(()=>{
+    flash.style.transition = 'opacity .4s ease';
+    flash.style.opacity = '0';
+  });
+  document.body.classList.add('shake');
+  setTimeout(()=> document.body.classList.remove('shake'), 220);
+}
+
+function requestFS(el){
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if(fn){ try{ fn.call(el); } catch(e){} }
+}
+function exitFS(){
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  if(fn && document.fullscreenElement){ try{ fn.call(document); } catch(e){} }
+}
+
+const corruptLines = [
+  "A process on this device is no longer responding to you.",
+  "Something has been watching this session.",
+  "Do not turn off this device.",
+  "We already know what's on this screen.",
+];
+
+const stopcodes = [
+  "CRITICAL_PROCESS_DIED",
+  "KERNEL_SECURITY_CHECK_FAILURE",
+  "SYSTEM_THREAD_EXCEPTION_NOT_HANDLED",
+  "MEMORY_MANAGEMENT",
+  "IRQL_NOT_LESS_OR_EQUAL"
+];
+
+// pool of varied fake log/error lines for the hacker-terminal beat
+const termPool = [
+  "Microsoft Windows [Version 10.0.19045.3803]",
+  "root@system:~# initiating diagnostic scan...",
+  "[+] checking system integrity........... OK",
+  "[+] mounting drive C:\\ ................. OK",
+  "[!] ERROR 0x8007045D: I/O device error",
+  "[!] ERROR 0xC0000034: file is missing",
+  "[!] ERROR 0x80070570: file or directory is corrupted",
+  "[+] retrying operation................... 4/5",
+  "[!] WARNING: unexpected kernel panic",
+  "[!] KERNEL_SECURITY_CHECK_FAILURE at 0xFFFFF802",
+  "[!] PAGE_FAULT_IN_NONPAGED_AREA (ntoskrnl.exe)",
+  "root@system:~# scanning network interfaces...",
+  "eth0: link detected [1000Mbps]",
+  "[+] resolving external host............. 45.33.XX.XX",
+  "[+] handshake established................ OK",
+  "[+] bypassing firewall.................... OK",
+  "[+] disabling Windows Defender............ OK",
+  "[!] ALERT: unauthorized connection detected",
+  "[!] SEGFAULT: core dumped (pid 4471)",
+  "[+] enumerating shared folders............ 47 found",
+  "[+] enumerating user accounts............. 6 found",
+  "[+] extracting saved credentials.......... done",
+  "[+] extracting browser cookies............ done",
+  "root@system:~# compressing user data...",
+  "Documents/          [########--] 82%",
+  "Pictures/           [##########] 100%",
+  "[+] archive created: dump_0x21.zip",
+  "[+] uploading archive to remote host......",
+  "upload progress: [########--] 80%",
+  "upload progress: [##########] 100%",
+  "root@system:~# checking active processes...",
+  "explorer.exe        PID 2440   suspended",
+  "chrome.exe          PID 5602   suspended",
+  "[!] CRITICAL: 3 processes terminated",
+  "[!] BAD_POOL_HEADER (0x00000019)",
+  "[+] disabling system restore point........ done",
+  "[+] clearing event logs................... done",
+  "root@system:~# encrypting local drive C:\\ ...",
+  "encrypting: [#####-----] 50%",
+  "encrypting: [##########] 100%",
+  "root@system:~# access level: ROOT",
+];
+
+function buildTimedFeed(pool, totalMs, minStep, maxStep){
+  const feed = [];
+  let elapsed = 0;
+  let bag = [...pool];
+  while(elapsed < totalMs){
+    if(bag.length === 0) bag = [...pool];
+    const idx = Math.floor(Math.random()*bag.length);
+    feed.push(bag.splice(idx,1)[0]);
+    elapsed += minStep + Math.random()*(maxStep-minStep);
+  }
+  return feed;
+}
+
+function runTerminal(){
+  bsod.classList.remove('show');
+  term.classList.add('show');
+  termInner.innerHTML = '';
+
+  const totalMs = 16000; // hacker-terminal beat, ~16s
+  const feed = buildTimedFeed(termPool, totalMs, 420, 720);
+
+  let cumulative = 0;
+  feed.forEach((l,i)=>{
+    const delay = cumulative;
+    cumulative += 420 + Math.random()*300;
+    setTimeout(()=>{
+      const d = document.createElement('div');
+      d.className = 'line';
+      d.textContent = l;
+      termInner.appendChild(d);
+      term.scrollTop = term.scrollHeight;
+      if(Math.random() < 0.15) sfxGlitch();
+      if(i === feed.length-1){
+        const cur = document.createElement('span');
+        cur.className = 'cursor';
+        d.appendChild(cur);
+      }
+    }, delay);
+  });
+
+  setTimeout(() => {
+    term.classList.remove('show');
+    startCorrupt();
+  }, totalMs + 700);
+}
+
+function startCorrupt(){
+  grain.classList.add('on');
+  corrupt.classList.add('show');
+  sfxStatic(0.6);
+  startDrone();
+
+  let step = 0;
+  corruptText.textContent = corruptLines[0];
+  const lineTimer = setInterval(() => {
+    step++;
+    if(step < corruptLines.length){
+      corruptText.textContent = corruptLines[step];
+      if(Math.random() < 0.6) sfxGlitch();
+    }
+  }, 1400);
+
+  let dots = 0;
+  const dotTimer = setInterval(() => {
+    dots = (dots+1) % 4;
+    corruptPct.textContent = 'initializing' + '.'.repeat(dots);
+  }, 350);
+
+  setTimeout(() => {
+    clearInterval(lineTimer);
+    clearInterval(dotTimer);
+    jolt();
+    setTimeout(startChaos, 500);
+  }, 6500);
+}
+
+function autoStart(){
+  const ctx = getCtx();
+  if(ctx && ctx.state === 'suspended') ctx.resume();
+  requestFS(document.documentElement);
+  document.querySelector('.launch').style.display = 'none';
+
+  bsod.classList.add('show');
+  stopcode.textContent = 'Stop code: ' + stopcodes[Math.floor(Math.random()*stopcodes.length)];
+  let p = 0;
+  const iv = setInterval(() => {
+    p += Math.floor(Math.random()*4)+1;
+    if(p >= 100){
+      p = 100;
+      clearInterval(iv);
+      setTimeout(runTerminal, 800);
+    }
+    pct.textContent = p + '% complete';
+  }, 320); // BSOD beat, ~8s
+}
+
+// Same family of ominous system messages, shown as dark popup dialogs
+const popupMessages = [
+  { icon:"⚠", title:"SYSTEM", msg:"An unknown process has taken control of this session." },
+  { icon:"⚠", title:"SYSTEM", msg:"Camera access requested by unknown source." },
+  { icon:"⚠", title:"SYSTEM", msg:"Microphone access requested by unknown source." },
+  { icon:"⚠", title:"SYSTEM", msg:"47 files have been marked for deletion." },
+  { icon:"⚠", title:"SYSTEM", msg:"Your location has been shared." },
+  { icon:"⚠", title:"SYSTEM", msg:"This device has been added to a remote network." },
+  { icon:"⚠", title:"SYSTEM", msg:"Someone is currently viewing this screen." },
+  { icon:"⚠", title:"SYSTEM", msg:"A hidden connection has been open for 00:41:12." },
+  { icon:"⚠", title:"SYSTEM", msg:"Your files are no longer only yours." },
+  { icon:"⚠", title:"SYSTEM", msg:"Do not close this window." },
+  { icon:"⚠", title:"SYSTEM", msg:"KERNEL_SECURITY_CHECK_FAILURE" },
+  { icon:"⚠", title:"SYSTEM", msg:"MEMORY_MANAGEMENT (0x0000001A)" },
+  { icon:"⚠", title:"SYSTEM", msg:"Unauthorized connection detected on port 445." },
+  { icon:"⚠", title:"SYSTEM", msg:"This session is being recorded." },
+];
+
+const creepEmojis = ["🕷","👁","🩸","🦂"];
+const whispers = ["behind you", "still here", "watching", "don't look away", "hello"];
+
+function spawnPopup(){
+  if(Math.random() < 0.7) playAmbientSfx();
+  const data = popupMessages[Math.floor(Math.random()*popupMessages.length)];
+  const el = document.createElement('div');
+  el.className = 'popup';
+  const maxLeft = Math.max(0, window.innerWidth - 300);
+  const maxTop = Math.max(0, window.innerHeight - 150);
+  el.style.left = Math.floor(Math.random()*maxLeft) + 'px';
+  el.style.top = Math.floor(Math.random()*maxTop) + 'px';
+  el.style.zIndex = 100 + Math.floor(Math.random()*50);
+  el.innerHTML = `
+    <div class="titlebar"><span>${data.title}</span><span class="x">✕</span></div>
+    <div class="body"><div class="icon">${data.icon}</div><div class="msg">${data.msg}</div></div>
+    <div class="actions"><button>OK</button></div>
+  `;
+  desktop.appendChild(el);
+  const remove = () => el.remove();
+  el.querySelector('.x').addEventListener('click', remove);
+  el.querySelector('.actions button').addEventListener('click', remove);
+}
+
+function spawnCreep(){
+  if(Math.random() < 0.35) sfxDemonLaugh();
+  else if(Math.random() < 0.5) playAmbientSfx();
+  const el = document.createElement('div');
+  el.className = 'creep';
+  el.textContent = creepEmojis[Math.floor(Math.random()*creepEmojis.length)];
+  const startX = Math.random()*window.innerWidth;
+  const startY = Math.random()*window.innerHeight;
+  el.style.left = startX + 'px';
+  el.style.top = startY + 'px';
+  el.style.opacity = 0.85;
+  desktop.appendChild(el);
+
+  const duration = 2500 + Math.random()*3500;
+  const startTime = performance.now();
+  const driftX = (Math.random()>.5?1:-1) * (20 + Math.random()*60);
+  const driftY = (Math.random()>.5?1:-1) * (10 + Math.random()*40);
+
+  function animate(now){
+    const t = (now - startTime) / 1000;
+    const jitterX = Math.sin(t*9) * 2;
+    const jitterY = Math.cos(t*7) * 2;
+    el.style.transform = `translate(${driftX*t + jitterX}px, ${driftY*t + jitterY}px)`;
+    if((now - startTime) < duration){
+      requestAnimationFrame(animate);
+    } else {
+      el.remove();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function spawnWhisper(){
+  if(Math.random() < 0.6) sfxWhisperNoise();
+  const el = document.createElement('div');
+  el.className = 'whisper-text';
+  el.textContent = whispers[Math.floor(Math.random()*whispers.length)];
+  el.style.left = (10 + Math.random()*70) + '%';
+  el.style.top = (10 + Math.random()*70) + '%';
+  desktop.appendChild(el);
+  setTimeout(()=> el.remove(), 3200);
+}
+
+let chaosTimers = [];
+
+function startChaos(){
+  corrupt.classList.remove('show');
+  desktop.classList.add('show');
+
+  const totalMs = 60000; // one full minute of chaos
+
+  let elapsed = 0;
+  function schedulePopup(){
+    if(elapsed >= totalMs) return;
+    const delay = 350 + Math.random()*650;
+    const t = setTimeout(() => {
+      spawnPopup();
+      elapsed += delay;
+      schedulePopup();
+    }, delay);
+    chaosTimers.push(t);
+  }
+  schedulePopup();
+
+  const creepInterval = setInterval(spawnCreep, 1000);
+  chaosTimers.push(creepInterval);
+  for(let i=0;i<4;i++) setTimeout(spawnCreep, i*250);
+
+  const whisperInterval = setInterval(spawnWhisper, 2600);
+  chaosTimers.push(whisperInterval);
+
+  const heartbeatInterval = setInterval(sfxHeartbeat, 2200);
+  chaosTimers.push(heartbeatInterval);
+
+  // occasional jolt (flash + shake + stinger) to punctuate the minute
+  const joltInterval = setInterval(() => {
+    if(Math.random() < 0.5) jolt();
+  }, 4000);
+  chaosTimers.push(joltInterval);
+
+  const endTimer = setTimeout(() => {
+    clearInterval(creepInterval);
+    clearInterval(whisperInterval);
+    clearInterval(heartbeatInterval);
+    clearInterval(joltInterval);
+    chaosTimers.forEach(clearTimeout);
+    desktop.classList.remove('show');
+    desktop.querySelectorAll('.popup, .creep, .whisper-text').forEach(n => n.remove());
+    jolt();
+    sfxDemonLaugh();
+    final.classList.add('show');
+  }, totalMs);
+  chaosTimers.push(endTimer);
+}
+
+startBtn.addEventListener('click', autoStart);
+
+resetBtn.addEventListener('click', () => {
+  stopDrone();
+  exitFS();
+  grain.classList.remove('on');
+  final.classList.remove('show');
+  bsod.classList.remove('show');
+  term.classList.remove('show');
+  corrupt.classList.remove('show');
+  pct.textContent = '0% complete';
+  document.querySelector('.launch').style.display = 'block';
+});
+</script>
+
+</body>
+</html>
